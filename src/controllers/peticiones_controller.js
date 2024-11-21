@@ -14,7 +14,7 @@ export const seleccionarPeticiones = async (req, res) => {
 
     const [rows] = await db_pool_connection.query(query);
 
-    if (rows[0].length === 0) {
+    if (rows.length === 0 || rows[0].length === 0) {
       return res
         .status(404)
         .json(response_not_found("No hay peticiones de reparación activas"));
@@ -41,7 +41,7 @@ export const seleccionarPeticionPorId = async (req, res) => {
 
     const [rows] = await db_pool_connection.query(query, [id_peticion]);
 
-    if (rows[0].length === 0) {
+    if (rows.length === 0 || rows[0].length === 0) {
       return res
         .status(404)
         .json(
@@ -72,7 +72,7 @@ export const seleccionarPeticionesByClienteId = async (req, res) => {
 
     const [rows] = await db_pool_connection.query(query, [id_cliente]);
 
-    if (rows[0].length === 0) {
+    if (rows.length === 0 || rows[0].length === 0) {
       return res
         .status(404)
         .json(
@@ -93,8 +93,7 @@ export const seleccionarPeticionesByClienteId = async (req, res) => {
 // Insertar una nueva petición
 export const insertarPeticion = async (req, res) => {
   try {
-    const { descripcion, id_equipo, id_cliente, fecha_peticion, estado } =
-      req.body;
+    const { descripcion, id_equipo, id_cliente, fecha_peticion } = req.body;
 
     if (!descripcion || !id_equipo || !id_cliente || !fecha_peticion) {
       return res
@@ -106,14 +105,13 @@ export const insertarPeticion = async (req, res) => {
         );
     }
 
-    const query = `CALL insertarPeticion(?, ?, ?, ?, ?);`;
+    const query = `CALL insertarPeticion(?, ?, ?, ?);`;
 
     const [result] = await db_pool_connection.query(query, [
       descripcion,
       id_equipo,
       id_cliente,
       fecha_peticion,
-      estado || 1,
     ]);
 
     res
@@ -128,14 +126,13 @@ export const insertarPeticion = async (req, res) => {
 export const actualizarPeticion = async (req, res) => {
   try {
     const id = req.params.id;
-    const { descripcion, id_equipo, id_cliente, fecha_peticion, estado } =
-      req.body;
+    const { descripcion, id_equipo, id_cliente, fecha_peticion } = req.body;
 
     if (!id) {
       return res.status(400).json(response_bad_request("El ID es requerido"));
     }
 
-    const query = `CALL actualizarPeticion(?, ?, ?, ?, ?, ?);`;
+    const query = `CALL actualizarPeticion(?, ?, ?, ?, ?);`;
 
     const [result] = await db_pool_connection.query(query, [
       id,
@@ -143,7 +140,6 @@ export const actualizarPeticion = async (req, res) => {
       id_equipo,
       id_cliente,
       fecha_peticion,
-      estado,
     ]);
 
     if (result.affectedRows === 0) {

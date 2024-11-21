@@ -14,7 +14,7 @@ export const seleccionarTecnicos = async (req, res) => {
 
     const [rows] = await db_pool_connection.query(query);
 
-    if (rows[0].length === 0) {
+    if (rows.length === 0 || rows[0].length === 0) {
       return res
         .status(404)
         .json(response_not_found("No hay técnicos activos"));
@@ -43,7 +43,7 @@ export const seleccionarTecnicoPorId = async (req, res) => {
 
     console.log(rows);
 
-    if (rows[0].length === 0) {
+    if (rows.length === 0 || rows[0].length === 0) {
       return res.status(404).json(response_not_found("Técnico no encontrado"));
     } else {
       res.status(200).json(response_success(rows, "Técnico encontrado"));

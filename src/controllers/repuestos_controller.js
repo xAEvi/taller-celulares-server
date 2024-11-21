@@ -9,11 +9,7 @@ import {
 
 export const seleccionarRepuestos = async (req, res) => {
   try {
-    const query = `
-      SELECT id_repuesto, nombre, cantidad, precio, estado
-      FROM Repuesto
-      WHERE estado = 1  -- Solo repuestos activos
-    `;
+    const query = "CALL seleccionarRepuestos();";
 
     const [rows] = await db_pool_connection.query(query);
 
@@ -22,7 +18,7 @@ export const seleccionarRepuestos = async (req, res) => {
         .status(404)
         .json(response_not_found("No se encontraron repuestos activos"));
     } else {
-      res.status(200).json(response_success(rows, "Repuestos encontrados"));
+      res.status(200).json(response_success(rows[0], "Repuestos encontrados"));
     }
   } catch (error) {
     res.status(500).json(response_error(500, "Error al obtener repuestos"));
@@ -39,11 +35,7 @@ export const seleccionarRepuestoPorId = async (req, res) => {
         .json(response_bad_request("El ID del repuesto es requerido"));
     }
 
-    const query = `
-      SELECT id_repuesto, nombre, cantidad, precio, estado
-      FROM Repuesto
-      WHERE id_repuesto = ? AND estado = 1  -- Solo repuesto activo
-    `;
+    const query = "CALL seleccionarRepuestoPorId(?);";
 
     const [rows] = await db_pool_connection.query(query, [id_repuesto]);
 
@@ -59,7 +51,7 @@ export const seleccionarRepuestoPorId = async (req, res) => {
 
 export const insertarRepuesto = async (req, res) => {
   try {
-    const { nombre, cantidad, precio, estado } = req.body;
+    const { nombre, cantidad, precio } = req.body;
 
     if (!nombre || !cantidad || !precio) {
       return res
@@ -71,14 +63,17 @@ export const insertarRepuesto = async (req, res) => {
         );
     }
 
-    const [rows] = await db_pool_connection.query(
-      "INSERT INTO Repuesto (nombre, cantidad, precio, estado) VALUES (?, ?, ?, ?)",
-      [nombre, cantidad, precio, estado || 1] // Estado por defecto es 1 (activo)
-    );
+    const query = "CALL insertarRepuesto(?, ?, ?);";
+
+    const [result] = await db_pool_connection.query(query, [
+      nombre,
+      cantidad,
+      precio,
+    ]);
 
     res
       .status(201)
-      .json(response_created(rows.insertId, "Repuesto creado correctamente"));
+      .json(response_created(result.insertId, "Repuesto creado correctamente"));
   } catch (error) {
     res.status(500).json(response_error(500, "Error al crear el repuesto"));
   }
@@ -87,7 +82,7 @@ export const insertarRepuesto = async (req, res) => {
 export const actualizarRepuesto = async (req, res) => {
   try {
     const id_repuesto = req.params.id_repuesto;
-    const { nombre, cantidad, precio, estado } = req.body;
+    const { nombre, cantidad, precio } = req.body;
 
     if (!id_repuesto) {
       return res
@@ -95,10 +90,14 @@ export const actualizarRepuesto = async (req, res) => {
         .json(response_bad_request("El ID del repuesto es requerido"));
     }
 
-    const [result] = await db_pool_connection.query(
-      "UPDATE Repuesto SET nombre = ?, cantidad = ?, precio = ?, estado = ? WHERE id_repuesto = ?",
-      [nombre, cantidad, precio, estado, id_repuesto]
-    );
+    const query = "CALL actualizarRepuesto(?, ?, ?, ?);";
+
+    const [result] = await db_pool_connection.query(query, [
+      id_repuesto,
+      nombre,
+      cantidad,
+      precio,
+    ]);
 
     if (result.affectedRows === 0) {
       return res.status(404).json(response_not_found("Repuesto no encontrado"));
@@ -124,10 +123,9 @@ export const eliminarRepuesto = async (req, res) => {
         .json(response_bad_request("El ID del repuesto es requerido"));
     }
 
-    const [result] = await db_pool_connection.query(
-      "UPDATE Repuesto SET estado = 0 WHERE id_repuesto = ?",
-      [id_repuesto]
-    );
+    const query = "CALL eliminarRepuesto(?);";
+
+    const [result] = await db_pool_connection.query(query, [id_repuesto]);
 
     if (result.affectedRows === 0) {
       return res.status(404).json(response_not_found("Repuesto no encontrado"));
