@@ -14,7 +14,7 @@ export const seleccionarPeticiones = async (req, res) => {
 
     const [rows] = await db_pool_connection.query(query);
 
-    if (rows.length <= 0) {
+    if (rows[0].length === 0) {
       return res
         .status(404)
         .json(response_not_found("No hay peticiones de reparación activas"));
@@ -41,7 +41,7 @@ export const seleccionarPeticionPorId = async (req, res) => {
 
     const [rows] = await db_pool_connection.query(query, [id_peticion]);
 
-    if (rows.length <= 0) {
+    if (rows[0].length === 0) {
       return res
         .status(404)
         .json(
@@ -72,7 +72,7 @@ export const seleccionarPeticionesByClienteId = async (req, res) => {
 
     const [rows] = await db_pool_connection.query(query, [id_cliente]);
 
-    if (rows.length <= 0) {
+    if (rows[0].length === 0) {
       return res
         .status(404)
         .json(

@@ -17,7 +17,7 @@ export const seleccionarRepuestos = async (req, res) => {
 
     const [rows] = await db_pool_connection.query(query);
 
-    if (rows.length <= 0) {
+    if (rows[0].length === 0) {
       return res
         .status(404)
         .json(response_not_found("No se encontraron repuestos activos"));
@@ -47,7 +47,7 @@ export const seleccionarRepuestoPorId = async (req, res) => {
 
     const [rows] = await db_pool_connection.query(query, [id_repuesto]);
 
-    if (rows.length <= 0) {
+    if (rows[0].length === 0) {
       return res.status(404).json(response_not_found("Repuesto no encontrado"));
     } else {
       res.status(200).json(response_success(rows[0], "Repuesto encontrado"));
