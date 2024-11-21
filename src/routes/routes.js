@@ -16,6 +16,14 @@ import {
   eliminarTecnico,
 } from "../controllers/tecnicos_controller.js";
 
+import {
+  seleccionarRepuestos,
+  seleccionarRepuestoPorId,
+  insertarRepuesto,
+  actualizarRepuesto,
+  eliminarRepuesto,
+} from "../controllers/repuestos_controller.js";
+
 const routes = new Router();
 
 // Peticiones
@@ -34,5 +42,13 @@ routes.get("/tecnicos/:id", seleccionarTecnicoPorId);
 routes.post("/tecnicos", insertarTecnico);
 routes.put("/tecnicos/:id", actualizarTecnico);
 routes.delete("/tecnicos/:id", eliminarTecnico);
+
+//  Repuestos
+
+routes.get("/repuestos", seleccionarRepuestos);
+routes.get("/repuestos/:id", seleccionarRepuestoPorId);
+routes.post("/repuestos", insertarRepuesto);
+routes.put("/repuestos/:id", actualizarRepuesto);
+routes.delete("/repuestos/:id", eliminarRepuesto);
 
 export default routes;
