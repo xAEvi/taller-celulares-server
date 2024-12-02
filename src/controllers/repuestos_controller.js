@@ -9,38 +9,39 @@ import {
 
 export const seleccionarRepuestos = async (req, res) => {
   try {
-    const query = "CALL seleccionarRepuestos();";
-
+    const query = `
+      SELECT id_repuesto, nombre, cantidad, precio, estado
+      FROM Repuesto
+      WHERE estado = 1
+    `;
     const [rows] = await db_pool_connection.query(query);
 
-    if (rows[0].length === 0) {
+    if (rows.length <= 0) {
       return res
         .status(404)
-        .json(response_not_found("No se encontraron repuestos activos"));
+        .json(response_not_found("No se encontraron repuestos"));
     } else {
-      res.status(200).json(response_success(rows[0], "Repuestos encontrados"));
+      res.status(200).json(response_success(rows, "Repuestos encontrados"));
     }
   } catch (error) {
-    res.status(500).json(response_error(500, "Error al obtener repuestos"));
+    res.status(500).json(response_error(500, "Error al obtener los repuestos"));
   }
 };
 
-export const seleccionarRepuestoPorId = async (req, res) => {
+export const seleccionarRepuestoPorID = async (req, res) => {
   try {
-    const id_repuesto = req.params.id_repuesto;
+    const { id } = req.params;
+    const query = `
+      SELECT id_repuesto, nombre, cantidad, precio, estado
+      FROM Repuesto
+      WHERE id_repuesto = ? AND estado = 1
+    `;
+    const [rows] = await db_pool_connection.query(query, [id]);
 
-    if (!id_repuesto) {
+    if (rows.length <= 0) {
       return res
-        .status(400)
-        .json(response_bad_request("El ID del repuesto es requerido"));
-    }
-
-    const query = "CALL seleccionarRepuestoPorId(?);";
-
-    const [rows] = await db_pool_connection.query(query, [id_repuesto]);
-
-    if (rows[0].length === 0) {
-      return res.status(404).json(response_not_found("Repuesto no encontrado"));
+        .status(404)
+        .json(response_not_found(`No se encontró el repuesto con ID ${id}`));
     } else {
       res.status(200).json(response_success(rows[0], "Repuesto encontrado"));
     }
@@ -56,56 +57,68 @@ export const insertarRepuesto = async (req, res) => {
     if (!nombre || !cantidad || !precio) {
       return res
         .status(400)
-        .json(
-          response_bad_request(
-            "Todos los campos obligatorios deben ser completados"
-          )
-        );
+        .json(response_bad_request("Todos los campos son obligatorios"));
     }
 
-    const query = "CALL insertarRepuesto(?, ?, ?);";
-
+    const query = `
+      INSERT INTO Repuesto (nombre, cantidad, precio)
+      VALUES (?, ?, ?)
+    `;
     const [result] = await db_pool_connection.query(query, [
       nombre,
       cantidad,
       precio,
     ]);
 
-    res
-      .status(201)
-      .json(response_created(result.insertId, "Repuesto creado correctamente"));
+    if (result.affectedRows > 0) {
+      res
+        .status(201)
+        .json(
+          response_created(
+            { id_repuesto: result.insertId },
+            "Repuesto creado con éxito"
+          )
+        );
+    } else {
+      res.status(500).json(response_error(500, "No se pudo crear el repuesto"));
+    }
   } catch (error) {
-    res.status(500).json(response_error(500, "Error al crear el repuesto"));
+    res.status(500).json(response_error(500, "Error al insertar el repuesto"));
   }
 };
 
 export const actualizarRepuesto = async (req, res) => {
   try {
-    const id_repuesto = req.params.id_repuesto;
+    const { id } = req.params;
     const { nombre, cantidad, precio } = req.body;
 
-    if (!id_repuesto) {
+    if (!nombre || !cantidad || !precio) {
       return res
         .status(400)
-        .json(response_bad_request("El ID del repuesto es requerido"));
+        .json(response_bad_request("Todos los campos son obligatorios"));
     }
 
-    const query = "CALL actualizarRepuesto(?, ?, ?, ?);";
-
+    const query = `
+      UPDATE Repuesto
+      SET nombre = ?, cantidad = ?, precio = ?
+      WHERE id_repuesto = ?
+    `;
     const [result] = await db_pool_connection.query(query, [
-      id_repuesto,
       nombre,
       cantidad,
       precio,
+      id,
     ]);
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json(response_not_found("Repuesto no encontrado"));
+    if (result.affectedRows > 0) {
+      res
+        .status(200)
+        .json(response_success(null, "Repuesto actualizado con éxito"));
+    } else {
+      res
+        .status(404)
+        .json(response_not_found(`No se encontró el repuesto con ID ${id}`));
     }
-
-    res
-      .status(200)
-      .json(response_success(result, "Repuesto actualizado correctamente"));
   } catch (error) {
     res
       .status(500)
@@ -115,25 +128,24 @@ export const actualizarRepuesto = async (req, res) => {
 
 export const eliminarRepuesto = async (req, res) => {
   try {
-    const id_repuesto = req.params.id_repuesto;
+    const { id } = req.params;
 
-    if (!id_repuesto) {
-      return res
-        .status(400)
-        .json(response_bad_request("El ID del repuesto es requerido"));
+    const query = `
+      UPDATE Repuesto
+      SET estado = 0
+      WHERE id_repuesto = ?
+    `;
+    const [result] = await db_pool_connection.query(query, [id]);
+
+    if (result.affectedRows > 0) {
+      res
+        .status(200)
+        .json(response_success(null, "Repuesto eliminado con éxito"));
+    } else {
+      res
+        .status(404)
+        .json(response_not_found(`No se encontró el repuesto con ID ${id}`));
     }
-
-    const query = "CALL eliminarRepuesto(?);";
-
-    const [result] = await db_pool_connection.query(query, [id_repuesto]);
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json(response_not_found("Repuesto no encontrado"));
-    }
-
-    res
-      .status(200)
-      .json(response_success(null, "Repuesto eliminado correctamente"));
   } catch (error) {
     res.status(500).json(response_error(500, "Error al eliminar el repuesto"));
   }

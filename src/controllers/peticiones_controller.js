@@ -7,181 +7,218 @@ import {
   response_bad_request,
 } from "../response/response.js";
 
-// Obtener todas las peticiones activas
-export const seleccionarPeticiones = async (req, res) => {
+export const seleccionarPeticionesReparacion = async (req, res) => {
   try {
-    const query = `CALL seleccionarPeticiones();`;
-
+    const query = `
+      SELECT pr.id_peticion, pr.descripcion, e.marca AS nombre_equipo, e.modelo AS modelo_equipo, c.nombre AS nombre_cliente, pr.id_cliente, pr.fecha_peticion, pr.estado
+      FROM PeticionReparacion pr
+      JOIN Equipo e ON pr.id_equipo = e.id_equipo
+      JOIN Cliente c ON pr.id_cliente = c.id_cliente
+      WHERE estado = 1
+    `;
     const [rows] = await db_pool_connection.query(query);
 
-    if (rows.length === 0 || rows[0].length === 0) {
+    if (rows.length <= 0) {
       return res
         .status(404)
-        .json(response_not_found("No hay peticiones de reparación activas"));
+        .json(response_not_found("No se encontraron peticiones de reparación"));
     } else {
-      res.status(200).json(response_success(rows, "Peticiones encontradas"));
-    }
-  } catch (error) {
-    res.status(500).json(response_error(500, "Error al buscar peticiones"));
-  }
-};
-
-// Obtener una petición activa por ID
-export const seleccionarPeticionPorId = async (req, res) => {
-  try {
-    const id_peticion = req.params.id;
-
-    if (!id_peticion) {
-      return res
-        .status(400)
-        .json(response_bad_request("El ID de la petición es requerido"));
-    }
-
-    const query = `CALL seleccionarPeticionPorId(?);`;
-
-    const [rows] = await db_pool_connection.query(query, [id_peticion]);
-
-    if (rows.length === 0 || rows[0].length === 0) {
-      return res
-        .status(404)
-        .json(
-          response_not_found(
-            "No se encontró ninguna petición activa con ese ID"
-          )
-        );
-    } else {
-      res.status(200).json(response_success(rows, "Petición encontrada"));
-    }
-  } catch (error) {
-    res.status(500).json(response_error(500, "Error al buscar la petición"));
-  }
-};
-
-// Obtener peticiones activas por cliente
-export const seleccionarPeticionesByClienteId = async (req, res) => {
-  try {
-    const id_cliente = req.params.id_cliente;
-
-    if (!id_cliente) {
-      return res
-        .status(400)
-        .json(response_bad_request("El ID del cliente es requerido"));
-    }
-
-    const query = `CALL seleccionarPeticionesByClienteId(?);`;
-
-    const [rows] = await db_pool_connection.query(query, [id_cliente]);
-
-    if (rows.length === 0 || rows[0].length === 0) {
-      return res
-        .status(404)
-        .json(
-          response_not_found(
-            "No se encontraron peticiones activas para este cliente"
-          )
-        );
-    } else {
-      res.status(200).json(response_success(rows, "Peticiones encontradas"));
+      res
+        .status(200)
+        .json(response_success(rows, "Peticiones de reparación encontradas"));
     }
   } catch (error) {
     res
       .status(500)
-      .json(response_error(500, "Error al buscar peticiones por cliente"));
+      .json(
+        response_error(500, "Error al obtener las peticiones de reparación")
+      );
   }
 };
 
-// Insertar una nueva petición
-export const insertarPeticion = async (req, res) => {
+export const seleccionarPeticionReparacionPorID = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const query = `
+      SELECT id_peticion, descripcion, id_equipo, id_cliente, fecha_peticion, estado
+      FROM PeticionReparacion
+      WHERE id_peticion = ? AND estado = 1
+    `;
+    const [rows] = await db_pool_connection.query(query, [id]);
+
+    if (rows.length <= 0) {
+      return res
+        .status(404)
+        .json(
+          response_not_found(
+            `No se encontró la petición de reparación con ID ${id}`
+          )
+        );
+    } else {
+      res
+        .status(200)
+        .json(response_success(rows[0], "Petición de reparación encontrada"));
+    }
+  } catch (error) {
+    res
+      .status(500)
+      .json(response_error(500, "Error al obtener la petición de reparación"));
+  }
+};
+
+export const seleccionarPeticionesReparacionPorCliente = async (req, res) => {
+  try {
+    const { id_cliente } = req.params;
+    const query = `
+      SELECT pr.id_peticion, pr.descripcion, e.marca AS nombre_equipo, e.modelo AS modelo_equipo, pr.id_cliente, pr.fecha_peticion, pr.estado
+      FROM PeticionReparacion pr
+      JOIN Equipo e ON pr.id_equipo = e.id_equipo
+      WHERE pr.id_cliente = ?
+    `;
+    const [rows] = await db_pool_connection.query(query, [id_cliente]);
+
+    if (rows.length <= 0) {
+      return res
+        .status(404)
+        .json(
+          response_not_found(
+            `No se encontraron peticiones de reparación para el cliente con ID ${id_cliente}`
+          )
+        );
+    } else {
+      res
+        .status(200)
+        .json(response_success(rows, "Peticiones de reparación encontradas"));
+    }
+  } catch (error) {
+    res
+      .status(500)
+      .json(
+        response_error(500, "Error al obtener las peticiones de reparación")
+      );
+  }
+};
+
+export const insertarPeticionReparacion = async (req, res) => {
   try {
     const { descripcion, id_equipo, id_cliente, fecha_peticion } = req.body;
 
     if (!descripcion || !id_equipo || !id_cliente || !fecha_peticion) {
       return res
         .status(400)
+        .json(response_bad_request("Todos los campos son obligatorios"));
+    }
+
+    const query = `
+      INSERT INTO PeticionReparacion (descripcion, id_equipo, id_cliente, fecha_peticion)
+      VALUES (?, ?, ?, ?)
+    `;
+    const [result] = await db_pool_connection.query(query, [
+      descripcion,
+      id_equipo,
+      id_cliente,
+      fecha_peticion,
+    ]);
+
+    if (result.affectedRows > 0) {
+      res
+        .status(201)
         .json(
-          response_bad_request(
-            "Todos los campos obligatorios deben ser completados"
+          response_created(
+            { id_peticion: result.insertId },
+            "Petición de reparación creada con éxito"
+          )
+        );
+    } else {
+      res
+        .status(500)
+        .json(
+          response_error(500, "No se pudo crear la petición de reparación")
+        );
+    }
+  } catch (error) {
+    res
+      .status(500)
+      .json(response_error(500, "Error al insertar la petición de reparación"));
+  }
+};
+
+export const actualizarPeticionReparacion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { descripcion, id_equipo, fecha_peticion } = req.body;
+
+    if (!descripcion || !id_equipo || !fecha_peticion) {
+      return res
+        .status(400)
+        .json(response_bad_request("Todos los campos son obligatorios"));
+    }
+
+    const query = `
+      UPDATE PeticionReparacion
+      SET descripcion = ?, id_equipo = ?, fecha_peticion = ?
+      WHERE id_peticion = ?
+    `;
+    const [result] = await db_pool_connection.query(query, [
+      descripcion,
+      id_equipo,
+      fecha_peticion,
+      id,
+    ]);
+
+    if (result.affectedRows > 0) {
+      res
+        .status(200)
+        .json(
+          response_success(null, "Petición de reparación actualizada con éxito")
+        );
+    } else {
+      res
+        .status(404)
+        .json(
+          response_not_found(
+            `No se encontró la petición de reparación con ID ${id}`
           )
         );
     }
-
-    const query = `CALL insertarPeticion(?, ?, ?, ?);`;
-
-    const [result] = await db_pool_connection.query(query, [
-      descripcion,
-      id_equipo,
-      id_cliente,
-      fecha_peticion,
-    ]);
-
-    res
-      .status(201)
-      .json(response_created(result.insertId, "Petición creada correctamente"));
-  } catch (error) {
-    res.status(500).json(response_error(500, "Error al crear petición"));
-  }
-};
-
-// Actualizar una petición existente
-export const actualizarPeticion = async (req, res) => {
-  try {
-    const id = req.params.id;
-    const { descripcion, id_equipo, id_cliente, fecha_peticion } = req.body;
-
-    if (!id) {
-      return res.status(400).json(response_bad_request("El ID es requerido"));
-    }
-
-    const query = `CALL actualizarPeticion(?, ?, ?, ?, ?);`;
-
-    const [result] = await db_pool_connection.query(query, [
-      id,
-      descripcion,
-      id_equipo,
-      id_cliente,
-      fecha_peticion,
-    ]);
-
-    if (result.affectedRows === 0) {
-      res.status(404).json(response_not_found("Petición no encontrada"));
-    } else {
-      res
-        .status(200)
-        .json(response_success(result, "Petición actualizada correctamente"));
-    }
-  } catch (error) {
-    res.status(500).json(response_error(500, "Error al actualizar petición"));
-  }
-};
-
-// Eliminar (inactivar) una petición
-export const eliminarPeticion = async (req, res) => {
-  try {
-    const id = req.params.id;
-
-    if (!id) {
-      return res.status(400).json(response_bad_request("El ID es requerido"));
-    }
-
-    const query = `CALL eliminarPeticion(?);`;
-
-    const [result] = await db_pool_connection.query(query, [id]);
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json(response_not_found("Petición no encontrada"));
-    }
-
-    res
-      .status(200)
-      .json(response_success(null, "Petición eliminada correctamente"));
   } catch (error) {
     res
       .status(500)
       .json(
-        response_error(
-          500,
-          "Error al realizar el borrado lógico de la petición"
-        )
+        response_error(500, "Error al actualizar la petición de reparación")
       );
+  }
+};
+
+export const eliminarPeticionReparacion = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const query = `
+      UPDATE PeticionReparacion
+      SET estado = 0
+      WHERE id_peticion = ?
+    `;
+    const [result] = await db_pool_connection.query(query, [id]);
+
+    if (result.affectedRows > 0) {
+      res
+        .status(200)
+        .json(
+          response_success(null, "Petición de reparación eliminada con éxito")
+        );
+    } else {
+      res
+        .status(404)
+        .json(
+          response_not_found(
+            `No se encontró la petición de reparación con ID ${id}`
+          )
+        );
+    }
+  } catch (error) {
+    res
+      .status(500)
+      .json(response_error(500, "Error al eliminar la petición de reparación"));
   }
 };

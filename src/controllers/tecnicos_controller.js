@@ -7,141 +7,144 @@ import {
   response_bad_request,
 } from "../response/response.js";
 
-// Obtener todos los técnicos activos
 export const seleccionarTecnicos = async (req, res) => {
   try {
-    const query = `CALL seleccionarTecnicos();`;
-
+    const query = `
+      SELECT id_tecnico, nombre, telefono, email, estado
+      FROM Tecnico
+      WHERE estado = 1
+    `;
     const [rows] = await db_pool_connection.query(query);
 
-    if (rows.length === 0 || rows[0].length === 0) {
+    if (rows.length <= 0) {
       return res
         .status(404)
-        .json(response_not_found("No hay técnicos activos"));
+        .json(response_not_found("No se encontraron técnicos"));
     } else {
       res.status(200).json(response_success(rows, "Técnicos encontrados"));
     }
   } catch (error) {
-    res.status(500).json(response_error(500, "Error al buscar técnicos"));
+    res.status(500).json(response_error(500, "Error al obtener técnicos"));
   }
 };
 
-// Obtener técnico activo por ID
-export const seleccionarTecnicoPorId = async (req, res) => {
+export const seleccionarTecnicoPorID = async (req, res) => {
   try {
-    const id_tecnico = req.params.id;
+    const { id } = req.params;
+    const query = `
+      SELECT id_tecnico, nombre, telefono, email, estado
+      FROM Tecnico
+      WHERE id_tecnico = ? AND estado = 1
+    `;
+    const [rows] = await db_pool_connection.query(query, [id]);
 
-    if (!id_tecnico) {
+    if (rows.length <= 0) {
       return res
-        .status(400)
-        .json(response_bad_request("El ID del técnico es requerido"));
-    }
-
-    const query = `CALL seleccionarTecnicoPorId(?);`;
-
-    const [rows] = await db_pool_connection.query(query, [id_tecnico]);
-
-    console.log(rows);
-
-    if (rows.length === 0 || rows[0].length === 0) {
-      return res.status(404).json(response_not_found("Técnico no encontrado"));
+        .status(404)
+        .json(response_not_found(`No se encontró el técnico con ID ${id}`));
     } else {
-      res.status(200).json(response_success(rows, "Técnico encontrado"));
+      res.status(200).json(response_success(rows[0], "Técnico encontrado"));
     }
   } catch (error) {
-    res.status(500).json(response_error(500, "Error al buscar técnico"));
+    res.status(500).json(response_error(500, "Error al obtener el técnico"));
   }
 };
 
-// Insertar un nuevo técnico
 export const insertarTecnico = async (req, res) => {
   try {
-    const { nombre, telefono, email, estado } = req.body;
+    const { nombre, telefono, email } = req.body;
 
     if (!nombre || !telefono || !email) {
       return res
         .status(400)
+        .json(response_bad_request("Todos los campos son obligatorios"));
+    }
+
+    const query = `
+      INSERT INTO Tecnico (nombre, telefono, email)
+      VALUES (?, ?, ?)
+    `;
+    const [result] = await db_pool_connection.query(query, [
+      nombre,
+      telefono,
+      email,
+    ]);
+
+    if (result.affectedRows > 0) {
+      res
+        .status(201)
         .json(
-          response_bad_request(
-            "Todos los campos obligatorios deben ser completados"
+          response_created(
+            { id_tecnico: result.insertId },
+            "Técnico creado con éxito"
           )
         );
+    } else {
+      res.status(500).json(response_error(500, "No se pudo crear el técnico"));
     }
-
-    const query = `CALL insertarTecnico(?, ?, ?, ?);`;
-
-    const [result] = await db_pool_connection.query(query, [
-      nombre,
-      telefono,
-      email,
-      estado || 1,
-    ]);
-
-    res
-      .status(201)
-      .json(response_created(result.insertId, "Técnico creado correctamente"));
   } catch (error) {
-    res.status(500).json(response_error(500, "Error al crear técnico"));
+    res.status(500).json(response_error(500, "Error al insertar el técnico"));
   }
 };
 
-// Actualizar un técnico existente
 export const actualizarTecnico = async (req, res) => {
   try {
-    const id = req.params.id;
-    const { nombre, telefono, email, estado } = req.body;
+    const { id } = req.params;
+    const { nombre, telefono, email } = req.body;
 
-    if (!id) {
-      return res.status(400).json(response_bad_request("El ID es requerido"));
+    if (!nombre || !telefono || !email) {
+      return res
+        .status(400)
+        .json(response_bad_request("Todos los campos son obligatorios"));
     }
 
-    const query = `CALL actualizarTecnico(?, ?, ?, ?, ?);`;
-
+    const query = `
+      UPDATE Tecnico
+      SET nombre = ?, telefono = ?, email = ?
+      WHERE id_tecnico = ?
+    `;
     const [result] = await db_pool_connection.query(query, [
-      id,
       nombre,
       telefono,
       email,
-      estado,
+      id,
     ]);
 
-    if (result.affectedRows === 0) {
-      res.status(404).json(response_not_found("Técnico no encontrado"));
-    } else {
+    if (result.affectedRows > 0) {
       res
         .status(200)
-        .json(response_success(result, "Técnico actualizado correctamente"));
+        .json(response_success(null, "Técnico actualizado con éxito"));
+    } else {
+      res
+        .status(404)
+        .json(response_not_found(`No se encontró el técnico con ID ${id}`));
     }
   } catch (error) {
-    res.status(500).json(response_error(500, "Error al actualizar técnico"));
+    res.status(500).json(response_error(500, "Error al actualizar el técnico"));
   }
 };
 
-// Eliminar (inactivar) un técnico
 export const eliminarTecnico = async (req, res) => {
   try {
-    const id = req.params.id;
+    const { id } = req.params;
 
-    if (!id) {
-      return res.status(400).json(response_bad_request("El ID es requerido"));
-    }
-
-    const query = `CALL eliminarTecnico(?);`;
-
+    const query = `
+      UPDATE Tecnico
+      SET estado = 0
+      WHERE id_tecnico = ?
+    `;
     const [result] = await db_pool_connection.query(query, [id]);
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json(response_not_found("Técnico no encontrado"));
+    if (result.affectedRows > 0) {
+      res
+        .status(200)
+        .json(response_success(null, "Técnico eliminado con éxito"));
+    } else {
+      res
+        .status(404)
+        .json(response_not_found(`No se encontró el técnico con ID ${id}`));
     }
-
-    res
-      .status(200)
-      .json(response_success(null, "Técnico eliminado correctamente"));
   } catch (error) {
-    res
-      .status(500)
-      .json(
-        response_error(500, "Error al realizar el borrado lógico del técnico")
-      );
+    res.status(500).json(response_error(500, "Error al eliminar el técnico"));
   }
 };

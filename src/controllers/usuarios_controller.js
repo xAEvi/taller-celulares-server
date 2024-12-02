@@ -7,42 +7,41 @@ import {
   response_bad_request,
 } from "../response/response.js";
 
-// Seleccionar todos los usuarios activos
 export const seleccionarUsuarios = async (req, res) => {
   try {
-    const query = "CALL seleccionarUsuarios();";
-
+    const query = `
+      SELECT id_usuario, nombre_usuario, rol, id_cliente, estado
+      FROM Usuario
+      WHERE estado = 1
+    `;
     const [rows] = await db_pool_connection.query(query);
 
-    if (rows[0].length === 0) {
+    if (rows.length <= 0) {
       return res
         .status(404)
-        .json(response_not_found("No se encontraron usuarios activos"));
+        .json(response_not_found("No se encontraron usuarios"));
     } else {
-      res.status(200).json(response_success(rows[0], "Usuarios encontrados"));
+      res.status(200).json(response_success(rows, "Usuarios encontrados"));
     }
   } catch (error) {
-    res.status(500).json(response_error(500, "Error al obtener los usuarios"));
+    res.status(500).json(response_error(500, "Error al obtener usuarios"));
   }
 };
 
-// Seleccionar un usuario por ID
-export const seleccionarUsuarioPorId = async (req, res) => {
+export const seleccionarUsuarioPorID = async (req, res) => {
   try {
-    const id_usuario = req.params.id_usuario;
+    const { id } = req.params;
+    const query = `
+      SELECT id_usuario, nombre_usuario, rol, id_cliente, estado
+      FROM Usuario
+      WHERE id_usuario = ? AND estado = 1
+    `;
+    const [rows] = await db_pool_connection.query(query, [id]);
 
-    if (!id_usuario) {
+    if (rows.length <= 0) {
       return res
-        .status(400)
-        .json(response_bad_request("El ID del usuario es requerido"));
-    }
-
-    const query = "CALL seleccionarUsuarioPorId(?);";
-
-    const [rows] = await db_pool_connection.query(query, [id_usuario]);
-
-    if (rows[0].length === 0) {
-      return res.status(404).json(response_not_found("Usuario no encontrado"));
+        .status(404)
+        .json(response_not_found(`No se encontró el usuario con ID ${id}`));
     } else {
       res.status(200).json(response_success(rows[0], "Usuario encontrado"));
     }
@@ -51,129 +50,63 @@ export const seleccionarUsuarioPorId = async (req, res) => {
   }
 };
 
-// Insertar un nuevo usuario
-export const insertarUsuario = async (req, res) => {
-  try {
-    const { nombre_usuario, contrasena, rol, id_cliente } = req.body;
-
-    if (!nombre_usuario || !contrasena || !rol || !id_cliente) {
-      return res
-        .status(400)
-        .json(
-          response_bad_request(
-            "Todos los campos obligatorios deben ser completados"
-          )
-        );
-    }
-
-    const query = "CALL insertarUsuario(?, ?, ?, ?);";
-
-    const [result] = await db_pool_connection.query(query, [
-      nombre_usuario,
-      contrasena,
-      rol,
-      id_cliente,
-    ]);
-
-    res
-      .status(201)
-      .json(response_created(result.insertId, "Usuario creado correctamente"));
-  } catch (error) {
-    res.status(500).json(response_error(500, "Error al crear el usuario"));
-  }
-};
-
-// Actualizar un usuario existente
 export const actualizarUsuario = async (req, res) => {
   try {
-    const id_usuario = req.params.id_usuario;
-    const { nombre_usuario, contrasena, rol, id_cliente } = req.body;
-
-    if (!id_usuario) {
-      return res
-        .status(400)
-        .json(response_bad_request("El ID del usuario es requerido"));
-    }
-
-    const query = "CALL actualizarUsuario(?, ?, ?, ?, ?);";
-
-    const [result] = await db_pool_connection.query(query, [
-      id_usuario,
-      nombre_usuario,
-      contrasena,
-      rol,
-      id_cliente,
-    ]);
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json(response_not_found("Usuario no encontrado"));
-    }
-
-    res
-      .status(200)
-      .json(response_success(result, "Usuario actualizado correctamente"));
-  } catch (error) {
-    res.status(500).json(response_error(500, "Error al actualizar el usuario"));
-  }
-};
-
-// Eliminar (inactivar) un usuario
-export const eliminarUsuario = async (req, res) => {
-  try {
-    const id_usuario = req.params.id_usuario;
-
-    if (!id_usuario) {
-      return res
-        .status(400)
-        .json(response_bad_request("El ID del usuario es requerido"));
-    }
-
-    const query = "CALL eliminarUsuario(?);";
-
-    const [result] = await db_pool_connection.query(query, [id_usuario]);
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json(response_not_found("Usuario no encontrado"));
-    }
-
-    res
-      .status(200)
-      .json(response_success(null, "Usuario eliminado correctamente"));
-  } catch (error) {
-    res.status(500).json(response_error(500, "Error al eliminar el usuario"));
-  }
-};
-
-// Login de usuario (autenticación)
-export const loginUsuario = async (req, res) => {
-  try {
+    const { id } = req.params;
     const { nombre_usuario, contrasena } = req.body;
 
     if (!nombre_usuario || !contrasena) {
       return res
         .status(400)
-        .json(
-          response_bad_request(
-            "El nombre de usuario y la contraseña son requeridos"
-          )
-        );
+        .json(response_bad_request("Todos los campos son obligatorios"));
     }
 
-    const query = "CALL loginUsuario(?, ?);";
-
-    const [rows] = await db_pool_connection.query(query, [
+    const query = `
+      UPDATE Usuario
+      SET nombre_usuario = ?, contrasena = ?
+      WHERE id_usuario = ?
+    `;
+    const [result] = await db_pool_connection.query(query, [
       nombre_usuario,
       contrasena,
+      id,
     ]);
 
-    if (rows[0].length === 0) {
-      return res
-        .status(401)
-        .json(response_error(401, "Credenciales inválidas"));
+    if (result.affectedRows > 0) {
+      res
+        .status(200)
+        .json(response_success(null, "Usuario actualizado con éxito"));
     } else {
-      res.status(200).json(response_success(rows[0], "Login exitoso"));
+      res
+        .status(404)
+        .json(response_not_found(`No se encontró el usuario con ID ${id}`));
     }
   } catch (error) {
-    res.status(500).json(response_error(500, "Error al realizar login"));
+    res.status(500).json(response_error(500, "Error al actualizar el usuario"));
+  }
+};
+
+export const eliminarUsuario = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const query = `
+      UPDATE Usuario
+      SET estado = 0
+      WHERE id_usuario = ?
+    `;
+    const [result] = await db_pool_connection.query(query, [id]);
+
+    if (result.affectedRows > 0) {
+      res
+        .status(200)
+        .json(response_success(null, "Usuario eliminado con éxito"));
+    } else {
+      res
+        .status(404)
+        .json(response_not_found(`No se encontró el usuario con ID ${id}`));
+    }
+  } catch (error) {
+    res.status(500).json(response_error(500, "Error al eliminar el usuario"));
   }
 };
